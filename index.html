@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ tạo mã QR vCard tĩnh (Tên, Họ, Điện thoại, Chức danh, Công ty)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and general aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for better scrolling on small screens */
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            max-width: 900px; /* Increased max-width */
+            width: 100%;
+            display: flex;
+            flex-direction: column; /* Stack vertically on small screens */
+            gap: 30px; /* Space between sections */
+        }
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row; /* Side-by-side on larger screens */
+            }
+        }
+        .input-section, .output-section {
+            flex: 1; /* Equal width sections */
+            min-width: 300px; /* Minimum width for each section */
+        }
+        input[type="text"], input[type="email"], input[type="url"], input[type="tel"], textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #d1d5db; /* Light gray border */
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        input[type="text"]:focus, input[type="email"]:focus, input[type="url"]:focus, input[type="tel"]:focus, textarea:focus {
+            outline: none;
+            border-color: #6366f1; /* Indigo 500 */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); /* Light indigo shadow */
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151; /* Dark gray text */
+        }
+        /* Styles for both generate and download buttons */
+        .button-style {
+            width: 100%;
+            padding: 15px 25px; /* Increased padding */
+            background-color: #6366f1; /* Indigo 500 */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.25rem; /* Increased font size */
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3); /* Adjusted shadow */
+            text-align: center; /* Center text for anchor tag */
+            text-decoration: none; /* Remove underline for anchor tag */
+            display: inline-block; /* Ensure padding and width work */
+        }
+        .button-style:hover {
+            background-color: #4f46e5; /* Indigo 600 */
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4); /* Larger shadow on hover */
+        }
+        .button-style:disabled {
+            background-color: #a5b4fc; /* Indigo 300 */
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #qrCodeContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 150px; /* Adjusted min-height for smaller QR code */
+            background-color: #f9fafb; /* Lighter background for QR area */
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px dashed #e5e7eb;
+        }
+        #downloadBtn {
+            margin-top: 20px;
+            background-color: #10b981; /* Emerald 500 */
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
+        #downloadBtn:hover {
+            background-color: #059669; /* Emerald 600 */
+            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
+        }
+        .message-box {
+            background-color: #eff6ff; /* Blue 50 */
+            color: #1e40af; /* Blue 800 */
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #bfdbfe; /* Blue 200 */
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        .error-message {
+            background-color: #fee2e2; /* Red 50 */
+            color: #991b1b; /* Red 800 */
+            border-color: #ef4444; /* Red 500 */
+        }
+        .instructions-box {
+            background-color: #fffbeb; /* Yellow 50 */
+            color: #92400e; /* Yellow 800 */
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #fde68a; /* Yellow 200 */
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+        .instructions-box ol {
+            list-style-type: decimal;
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        .instructions-box li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="input-section">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Tạo mã QR vCard tĩnh</h2>
+
+            <label for="firstName">Tên:</label>
+            <input type="text" id="firstName" placeholder="VD: An (khong dau)">
+
+            <label for="lastName">Họ:</label>
+            <input type="text" id="lastName" placeholder="VD: Nguyen (khong dau)">
+
+            <label for="organization">Tổ chức:</label>
+            <input type="text" id="organization" placeholder="VD: Tin Nong TNTech (khong dau)">
+
+            <label for="title">Chức danh:</label>
+            <input type="text" id="title" placeholder="VD: Giam doc (khong dau)">
+
+            <label for="phone">Điện thoại (Di động):</label>
+            <input type="tel" id="phone" placeholder="VD: +84912345678">
+
+            <button id="generateBtn" class="button-style">Tạo mã QR vCard</button>
+            <div id="messageBox" class="message-box hidden"></div>
+        </div>
+
+        <div class="output-section">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Mã QR đã tạo</h2>
+            <div id="qrCodeContainer">
+                <!-- Initial placeholder content for QR code area -->
+                <img id="qrCodePlaceholderImage" src="https://placehold.co/100x100/E0E7FF/6366F1?text=Mã+QR+của+bạn+ở+đây" alt="QR Code Placeholder">
+                <p id="qrCodePlaceholderText" class="text-gray-500 text-sm mt-4">Mã QR vCard của bạn sẽ xuất hiện ở đây.</p>
+            </div>
+            <!-- Changed to <a> tag and applied button-style class -->
+            <a id="downloadBtn" href="#" class="button-style hidden">Tải xuống mã QR</a>
+
+            <div class="instructions-box">
+                <p class="font-bold">Lưu ý: Cách lưu và tải lên hình ảnh mã QR:</p>
+                <ol>
+                    <li>Sau khi tạo mã QR, nhấn nút "<span class="font-semibold">Tải xuống mã QR</span>" để lưu hình ảnh vào máy tính của bạn.</li>
+                    <li>Để tải lên Google Sheet:
+                        <ol type="a">
+                            <li>Mở Google Sheet của bạn.</li>
+                            <li>Chọn ô bạn muốn chèn hình ảnh.</li>
+                            <li>Vào menu <span class="font-semibold">Chèn (Insert)</span> > <span class="font-semibold">Hình ảnh (Image)</span> > <span class="font-semibold">Chèn hình ảnh trong ô (Insert image in cell)</span> hoặc <span class="font-semibold">Chèn hình ảnh trên các ô (Insert image over cells)</span>.</li>
+                            <li>Chọn <span class="font-semibold">Tải lên (Upload)</span> và chọn tệp hình ảnh mã QR bạn vừa tải xuống.</li>
+                        </ol>
+                    </li>
+                    <li>Để tải lên Google Form (cho phép mọi người tải lên mã QR):
+                        <ol type="a">
+                            <li>Trong Google Form của bạn, thêm một câu hỏi loại "<span class="font-semibold">Tải tệp lên (File upload)</span>".</li>
+                            <li>Người dùng sẽ tải xuống mã QR từ công cụ này và sau đó tải tệp hình ảnh đó lên câu trả lời của họ trong Google Form.</li>
+                        </ol>
+                    </li>
+                </ol>
+                <p class="mt-2 text-xs">**Về dung lượng dữ liệu:** Mã QR tĩnh có giới hạn về lượng dữ liệu mà chúng có thể chứa. Để tránh lỗi "Dữ liệu vCard quá lớn", bạn **nên nhập thông tin không dấu** (ví dụ: "Nguyen Van An" thay vì "Nguyễn Văn An") ở các trường "Tên", "Họ", "Tổ chức" hoặc "Chức danh" để giảm dung lượng dữ liệu. Vui lòng rút ngắn thông tin ở các trường này càng nhiều càng tốt.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- qrcode.js CDN for QR code generation -->
+    <script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const firstNameInput = document.getElementById('firstName');
+            const lastNameInput = document.getElementById('lastName');
+            const organizationInput = document.getElementById('organization');
+            const titleInput = document.getElementById('title');
+            const phoneInput = document.getElementById('phone');
+            const generateBtn = document.getElementById('generateBtn');
+            const downloadBtn = document.getElementById('downloadBtn'); // This is now an <a> tag
+            const qrCodeContainer = document.getElementById('qrCodeContainer');
+            const messageBox = document.getElementById('messageBox');
+
+            let qrcode = null; // Biến để lưu trữ đối tượng QRCode
+
+            // Hàm hiển thị thông báo
+            function showMessage(message, isError = false) {
+                messageBox.textContent = message;
+                messageBox.classList.remove('hidden', 'error-message');
+                if (isError) {
+                    messageBox.classList.add('error-message');
+                }
+            }
+
+            // Hàm ẩn thông báo
+            function hideMessage() {
+                messageBox.classList.add('hidden');
+                messageBox.textContent = '';
+            }
+
+            // Hàm tạo chuỗi vCard
+            function generateVCardString() {
+                const firstName = firstNameInput.value.trim();
+                const lastName = lastNameInput.value.trim();
+                const organization = organizationInput.value.trim();
+                const title = titleInput.value.trim();
+                const phone = phoneInput.value.trim();
+
+                // Xác thực cơ bản: Ít nhất một trường liên hệ phải có mặt
+                if (!firstName && !lastName && !organization && !title && !phone) {
+                    showMessage('Vui lòng nhập ít nhất Tên, Họ, Tổ chức, Chức danh hoặc Số điện thoại để tạo vCard.', true);
+                    return null;
+                }
+
+                let vCard = 'BEGIN:VCARD\n';
+                vCard += 'VERSION:3.0\n';
+
+                // Tên (N) và Tên định dạng (FN) - Bỏ CHARSET=UTF-8 để khuyến khích không dấu
+                const nValue = `${lastName};${firstName};;;`;
+                vCard += `N:${nValue}\n`;
+
+                const fullName = `${firstName} ${lastName}`.trim();
+                if (fullName) {
+                    vCard += `FN:${fullName}\n`;
+                } else if (organization) { // Fallback if no name, use organization as FN
+                     vCard += `FN:${organization}\n`;
+                }
+
+                // Tổ chức (ORG) - Bỏ CHARSET=UTF-8
+                if (organization) {
+                    vCard += `ORG:${organization}\n`;
+                }
+
+                // Chức danh (TITLE) - Bỏ CHARSET=UTF-8
+                if (title) {
+                    vCard += `TITLE:${title}\n`;
+                }
+
+                // Điện thoại (TEL) - Giả sử là di động, bỏ CHARSET=UTF-8
+                if (phone) {
+                    vCard += `TEL;TYPE=CELL:${phone}\n`;
+                }
+
+                vCard += 'END:VCARD';
+
+                return vCard;
+            }
+
+            // Function to generate and display QR code with fixed sizing
+            function generateAndDisplayQrCode(vCardData) {
+                const qrSize = 100; // Fixed size to 100x100 pixels
+
+                qrCodeContainer.innerHTML = ''; // Clear existing QR code
+
+                qrcode = new QRCode(qrCodeContainer, {
+                    width: qrSize,
+                    height: qrSize,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+
+                try {
+                    qrcode.makeCode(vCardData);
+                    // Increased timeout slightly to ensure canvas is fully rendered
+                    setTimeout(() => {
+                        const canvas = qrCodeContainer.querySelector('canvas');
+                        if (canvas) {
+                            const imageDataUrl = canvas.toDataURL('image/png');
+                            downloadBtn.href = imageDataUrl;
+                            downloadBtn.download = 'vcard_qr_code.png';
+                            downloadBtn.classList.remove('hidden');
+                            showMessage('Mã QR đã được tạo thành công! Hãy quét để lưu thông tin liên hệ.');
+                        } else {
+                            showMessage('Không thể tạo hình ảnh mã QR.', true);
+                        }
+                    }, 200); // Increased delay
+                } catch (error) {
+                    // Updated error message for clarity on Vietnamese characters
+                    showMessage('Lỗi: Tổng dữ liệu vCard quá lớn để tạo mã QR tĩnh. Vui lòng rút ngắn thông tin ở các trường "Tên", "Họ", "Tổ chức", "Chức danh" hoặc "Điện thoại" càng nhiều càng tốt. Đặc biệt, hãy thử nhập thông tin không dấu để giảm dung lượng dữ liệu.', true);
+                    // Re-display placeholder on error
+                    qrCodeContainer.innerHTML = `<img id="qrCodePlaceholderImage" src="https://placehold.co/${qrSize}x${qrSize}/E0E7FF/6366F1?text=Mã+QR+của+bạn+ở+đây" alt="QR Code Placeholder"><p id="qrCodePlaceholderText" class="text-gray-500 text-sm mt-4">Mã QR vCard của bạn sẽ xuất hiện ở đây.</p>`;
+                    downloadBtn.classList.add('hidden');
+                }
+            }
+
+            // Event listener for generate button
+            generateBtn.addEventListener('click', () => {
+                hideMessage();
+                const vCardData = generateVCardString();
+                if (vCardData) {
+                    generateAndDisplayQrCode(vCardData);
+                } else {
+                    // If no vCard data, just update placeholder size
+                    const qrSize = 100; // Fixed size for placeholder
+                    qrCodeContainer.innerHTML = `<img id="qrCodePlaceholderImage" src="https://placehold.co/${qrSize}x${qrSize}/E0E7FF/6366F1?text=Mã+QR+của+bạn+ở+đây" alt="QR Code Placeholder"><p id="qrCodePlaceholderText" class="text-gray-500 text-sm mt-4">Mã QR vCard của bạn sẽ xuất hiện ở đây.</p>`;
+                    downloadBtn.classList.add('hidden');
+                }
+            });
+
+            // Initial setup for placeholder size
+            const initialQrSize = 100; // Fixed size for placeholder
+            document.getElementById('qrCodePlaceholderImage').src = `https://placehold.co/${initialQrSize}x${initialQrSize}/E0E7FF/6366F1?text=Mã+QR+của+bạn+ở+đây`;
+
+            // Handle resize event - no longer needed for dynamic sizing, but keep if any other responsive elements depend on it
+            window.addEventListener('resize', () => {
+                // No action needed here as QR code size is now fixed.
+            });
+
+            // Xử lý trạng thái ban đầu của nút tải xuống
+            downloadBtn.classList.add('hidden');
+        });
+    </script>
+</body>
+</html>
