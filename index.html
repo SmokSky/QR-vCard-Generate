@@ -99,7 +99,7 @@
             padding: 20px; /* Increased padding */
             border: 1px solid #e5e7eb; /* Subtle border */
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* Added shadow */
-            margin-top: 20px;
+            margin-bottom: 20px; /* Added margin-bottom */
         }
         #downloadBtn {
             margin-top: 20px;
@@ -303,7 +303,7 @@
     </div>
 
     <!-- qrcode.js CDN for QR code generation -->
-    <script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script>
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -330,8 +330,9 @@
             const tabButtons = document.querySelectorAll('.tab-button');
             const tabContents = document.querySelectorAll('.tab-content');
 
-            let vcardQrcode = null; // Biến để lưu trữ đối tượng QRCode cho vCard
-            let dynamicQrcode = null; // Biến để lưu trữ đối tượng QRCode cho liên kết động
+            // Global instances for QRCodeStyling
+            let vcardQrcodeStylingInstance = null;
+            let dynamicQrcodeStylingInstance = null;
 
             // Cache for storing the last generated data for each tab
             let vcardDataCache = null;
@@ -406,44 +407,63 @@
                 return vCard;
             }
 
-            // Function to generate and display QR code (for both types)
-            // This function will now always create a new QRCode instance after clearing the container.
+            // Function to generate and display QR code using QRCodeStyling
             function generateAndDisplayQrCode(data, qrCodeContainer, downloadBtn, messageBox) {
-                const qrSize = 100; // Fixed size to 100x100 pixels
+                const qrSize = 100;
 
-                // Clear the container's existing content (including any old QR code or placeholder)
+                // Clear previous QR code and placeholder
                 qrCodeContainer.innerHTML = '';
 
-                // Create a new QRCode instance and store it in a local variable
-                const newQrcodeInstance = new QRCode(qrCodeContainer, {
+                // Check if QRCodeStyling is defined
+                if (typeof QRCodeStyling === 'undefined') {
+                    console.error("QRCodeStyling library is not loaded. Please check the network connection or script URL.");
+                    showMessage(messageBox, 'Lỗi: Thư viện tạo mã QR không tải được. Vui lòng kiểm tra kết nối mạng hoặc URL script.', true);
+                    qrCodeContainer.innerHTML = `<img src="https://placehold.co/${qrSize}x${qrSize}/E0E7FF/6366F1?text=QR+Code" alt="QR Code Placeholder"><p class="text-gray-500 text-sm mt-4">Mã QR của bạn sẽ xuất hiện ở đây.</p>`;
+                    downloadBtn.classList.add('hidden');
+                    return null; // Return null as instance could not be created
+                }
+
+                const newQrcodeStylingInstance = new QRCodeStyling({
                     width: qrSize,
                     height: qrSize,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
+                    type: "canvas", // Can be "canvas" or "svg"
+                    data: data,
+                    dotsOptions: {
+                        color: "#000000",
+                        type: "square"
+                    },
+                    backgroundOptions: {
+                        color: "#ffffff",
+                    },
+                    cornersSquareOptions: {
+                        color: "#000000",
+                        type: "square"
+                    },
+                    cornersDotOptions: {
+                        color: "#000000",
+                        type: "square"
+                    }
                 });
 
                 try {
-                    newQrcodeInstance.makeCode(data);
-                    setTimeout(() => {
-                        const canvas = qrCodeContainer.querySelector('canvas');
-                        if (canvas) {
-                            const imageDataUrl = canvas.toDataURL('image/png');
-                            downloadBtn.href = imageDataUrl;
-                            downloadBtn.download = 'qr_code.png'; // Generic name, user can rename
-                            downloadBtn.classList.remove('hidden');
-                            showMessage(messageBox, 'Mã QR đã được tạo thành công! Hãy quét để lưu thông tin.');
-                        } else {
-                            showMessage(messageBox, 'Không thể tạo hình ảnh mã QR.', true);
-                        }
-                    }, 200);
+                    newQrcodeStylingInstance.append(qrCodeContainer); // Append the QR code to the container
+
+                    // Update the download button's click handler
+                    // Ensure the download button is an anchor tag with href="#"
+                    downloadBtn.onclick = function(event) {
+                        event.preventDefault(); // Prevent default anchor behavior
+                        newQrcodeStylingInstance.download({ name: "qr_code", extension: "png" });
+                    };
+                    downloadBtn.classList.remove('hidden');
+                    showMessage(messageBox, 'Mã QR đã được tạo thành công! Hãy quét để lưu thông tin.');
+
                 } catch (error) {
+                    console.error("QR Code generation error:", error);
                     showMessage(messageBox, 'Lỗi: Tổng dữ liệu quá lớn để tạo mã QR tĩnh. Vui lòng rút ngắn thông tin. Đặc biệt, hãy thử nhập thông tin không dấu để giảm dung lượng dữ liệu.', true);
-                    // Re-display placeholder on error
                     qrCodeContainer.innerHTML = `<img src="https://placehold.co/${qrSize}x${qrSize}/E0E7FF/6366F1?text=QR+Code" alt="QR Code Placeholder"><p class="text-gray-500 text-sm mt-4">Mã QR của bạn sẽ xuất hiện ở đây.</p>`;
                     downloadBtn.classList.add('hidden');
                 }
-                return newQrcodeInstance; // Return the newly created instance
+                return newQrcodeStylingInstance; // Return the newly created instance
             }
 
             // Event listener for Static vCard QR Code generation
@@ -452,7 +472,7 @@
                 const vCardData = generateVCardString();
                 if (vCardData) {
                     vcardDataCache = vCardData; // Store data in cache
-                    vcardQrcode = generateAndDisplayQrCode(vCardData, vcardQrCodeContainer, downloadVcardBtn, vcardMessageBox);
+                    vcardQrcodeStylingInstance = generateAndDisplayQrCode(vCardData, vcardQrCodeContainer, downloadVcardBtn, vcardMessageBox);
                 } else {
                     vcardDataCache = null; // Clear cache if generation failed
                     const qrSize = 100;
@@ -472,7 +492,7 @@
                 }
 
                 dynamicDataCache = urlData; // Store data in cache
-                dynamicQrcode = generateAndDisplayQrCode(urlData, dynamicQrCodeContainer, downloadDynamicBtn, dynamicMessageBox);
+                dynamicQrcodeStylingInstance = generateAndDisplayQrCode(urlData, dynamicQrCodeContainer, downloadDynamicBtn, dynamicMessageBox);
             });
 
             // Tab switching logic
@@ -492,13 +512,13 @@
                     downloadVcardBtn.classList.add('hidden');
                     downloadDynamicBtn.classList.add('hidden');
 
-                    // If switching to a tab that already has a QR code, re-display it
-                    if (targetTab === 'staticVcard' && vcardDataCache) { // Check for cached data
-                        vcardQrcode = generateAndDisplayQrCode(vcardDataCache, vcardQrCodeContainer, downloadVcardBtn, vcardMessageBox);
-                    } else if (targetTab === 'dynamicLink' && dynamicDataCache) { // Check for cached data
-                        dynamicQrcode = generateAndDisplayQrCode(dynamicDataCache, dynamicQrCodeContainer, downloadDynamicBtn, dynamicMessageBox);
+                    // If switching to a tab that has cached data, re-generate it
+                    if (targetTab === 'staticVcard' && vcardDataCache) {
+                        vcardQrcodeStylingInstance = generateAndDisplayQrCode(vcardDataCache, vcardQrCodeContainer, downloadVcardBtn, vcardMessageBox);
+                    } else if (targetTab === 'dynamicLink' && dynamicDataCache) {
+                        dynamicQrcodeStylingInstance = generateAndDisplayQrCode(dynamicDataCache, dynamicQrCodeContainer, downloadDynamicBtn, dynamicMessageBox);
                     } else {
-                        // If no QR code generated for the tab, display placeholder
+                        // If no QR code generated for the tab yet, display placeholder
                         const qrSize = 100;
                         if (targetTab === 'staticVcard') {
                             vcardQrCodeContainer.innerHTML = `<img src="https://placehold.co/${qrSize}x${qrSize}/E0E7FF/6366F1?text=QR+Code" alt="QR Code Placeholder"><p class="text-gray-500 text-sm mt-4">Mã QR của bạn sẽ xuất hiện ở đây.</p>`;
