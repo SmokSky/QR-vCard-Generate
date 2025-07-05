@@ -232,6 +232,13 @@
                 <label for="vcardQrCodeSize">Kích thước mã QR (px):</label>
                 <input type="number" id="vcardQrCodeSize" value="200" min="50" max="1000"> <!-- Default size set to 200 -->
 
+                <!-- Logo section for vCard -->
+                <label for="vcardLogoUrl">Logo (URL):</label>
+                <input type="url" id="vcardLogoUrl" placeholder="VD: https://example.com/logo.png" value="./TNTECH.png">
+                
+                <label for="vcardLogoFile">Hoặc tải lên logo:</label>
+                <input type="file" id="vcardLogoFile" accept="image/*" class="w-full p-3 mb-4 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+
                 <button id="generateVcardBtn" class="button-style">Tạo mã QR vCard</button>
                 <div id="vcardMessageBox" class="message-box hidden"></div>
             </div>
@@ -249,6 +256,7 @@
                     <p class="font-bold">Lưu ý: Cách lưu và tải lên hình ảnh mã QR (vCard tĩnh):</p>
                     <ol>
                         <li>Sau khi tạo mã QR, nhấn nút "<span class="font-semibold">Tải xuống mã QR</span>" để lưu hình ảnh vào máy tính của bạn.</li>
+                        <li><span class="font-semibold">Logo:</span> Bạn có thể thêm logo vào mã QR bằng cách nhập URL của hình ảnh hoặc tải lên tệp hình ảnh. Logo sẽ hiển thị ở giữa mã QR.</li>
                         <li>Để tải lên Google Sheet:
                             <ol type="a">
                                 <li>Mở Google Sheet của bạn.</li>
@@ -280,6 +288,13 @@
                 <label for="dynamicQrCodeSize">Kích thước mã QR (px):</label>
                 <input type="number" id="dynamicQrCodeSize" value="200" min="50" max="1000"> <!-- Default size set to 200 -->
 
+                <!-- Logo section for dynamic QR -->
+                <label for="dynamicLogoUrl">Logo (URL):</label>
+                <input type="url" id="dynamicLogoUrl" placeholder="VD: https://example.com/logo.png" value="./TNTECH.png">
+                
+                <label for="dynamicLogoFile">Hoặc tải lên logo:</label>
+                <input type="file" id="dynamicLogoFile" accept="image/*" class="w-full p-3 mb-4 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+
                 <button id="generateDynamicBtn" class="button-style">Tạo mã QR liên kết</button>
                 <div id="dynamicMessageBox" class="message-box hidden"></div>
             </div>
@@ -300,6 +315,7 @@
                         <li>Thông tin thực tế (ví dụ: vCard, trang web cá nhân) cần được **lưu trữ tại liên kết đó** và bạn cần tự quản lý liên kết này.</li>
                         <li>Khi người dùng quét mã QR này, thiết bị của họ sẽ truy cập liên kết đó để lấy thông tin. Điều này yêu cầu **thiết bị có kết nối internet**.</li>
                         <li>Bạn có thể **thay đổi nội dung tại liên kết đó bất cứ lúc nào** mà không cần tạo lại mã QR vật lý.</li>
+                        <li><span class="font-semibold">Logo:</span> Bạn có thể thêm logo vào mã QR bằng cách nhập URL của hình ảnh hoặc tải lên tệp hình ảnh. Logo sẽ hiển thị ở giữa mã QR.</li>
                         <li>Sau khi tạo mã QR, nhấn nút "<span class="font-semibold">Tải xuống mã QR</span>" để lưu hình ảnh vào máy tính của bạn.</li>
                         <li>Để tải lên Google Sheet hoặc Google Form, bạn vẫn cần thực hiện thủ công bằng cách chèn hình ảnh đã tải xuống. Việc tải lên trực tiếp từ công cụ này **không thể thực hiện được** do các hạn chế bảo mật và yêu cầu API phức tạp.</li>
                     </ol>
@@ -321,6 +337,8 @@
             const phoneInput = document.getElementById('phone');
             const websiteInput = document.getElementById('website');
             const vcardQrCodeSizeInput = document.getElementById('vcardQrCodeSize'); // New size input
+            const vcardLogoUrlInput = document.getElementById('vcardLogoUrl');
+            const vcardLogoFileInput = document.getElementById('vcardLogoFile');
             const generateVcardBtn = document.getElementById('generateVcardBtn');
             const downloadVcardBtn = document.getElementById('downloadVcardBtn');
             const vcardQrCodeContainer = document.getElementById('vcardQrCodeContainer');
@@ -329,6 +347,8 @@
             // Dynamic Link QR Code Elements
             const dynamicQrUrlInput = document.getElementById('dynamicQrUrl');
             const dynamicQrCodeSizeInput = document.getElementById('dynamicQrCodeSize'); // New size input
+            const dynamicLogoUrlInput = document.getElementById('dynamicLogoUrl');
+            const dynamicLogoFileInput = document.getElementById('dynamicLogoFile');
             const generateDynamicBtn = document.getElementById('generateDynamicBtn');
             const downloadDynamicBtn = document.getElementById('downloadDynamicBtn');
             const dynamicQrCodeContainer = document.getElementById('dynamicQrCodeContainer');
@@ -345,6 +365,32 @@
             // Cache for storing the last generated data and size for each tab
             let vcardDataCache = { data: null, size: 200 }; // Default size
             let dynamicDataCache = { data: null, size: 200 }; // Default size
+
+            // Function to get logo data from URL or file input
+            async function getLogoData(logoUrlInput, logoFileInput) {
+                // Check if file is uploaded first (priority over URL)
+                if (logoFileInput.files && logoFileInput.files[0]) {
+                    return new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            resolve(e.target.result);
+                        };
+                        reader.readAsDataURL(logoFileInput.files[0]);
+                    });
+                }
+                // Otherwise check URL input
+                else if (logoUrlInput.value.trim()) {
+                    try {
+                        // Validate URL format
+                        new URL(logoUrlInput.value.trim());
+                        return logoUrlInput.value.trim();
+                    } catch (e) {
+                        console.warn('Invalid logo URL:', logoUrlInput.value);
+                        return null;
+                    }
+                }
+                return null;
+            }
 
             // Hàm hiển thị thông báo
             function showMessage(messageBox, message, isError = false) {
@@ -416,7 +462,7 @@
             }
 
             // Function to generate and display QR code using QRCodeStyling
-            function generateAndDisplayQrCode(data, qrCodeContainer, downloadBtn, messageBox, qrSize) {
+            function generateAndDisplayQrCode(data, qrCodeContainer, downloadBtn, messageBox, qrSize, logoData = null) {
                 // Validate qrSize
                 qrSize = parseInt(qrSize);
                 if (isNaN(qrSize) || qrSize <= 0) {
@@ -436,7 +482,8 @@
                     return null; // Return null as instance could not be created
                 }
 
-                const newQrcodeStylingInstance = new QRCodeStyling({
+                // Create QR code configuration
+                const qrConfig = {
                     width: qrSize,
                     height: qrSize,
                     type: "canvas", // Can be "canvas" or "svg"
@@ -456,7 +503,20 @@
                         color: "#000000",
                         type: "square"
                     }
-                });
+                };
+
+                // Add logo if provided
+                if (logoData) {
+                    qrConfig.image = logoData;
+                    qrConfig.imageOptions = {
+                        crossOrigin: "anonymous",
+                        margin: 10,
+                        imageSize: 0.3, // Logo takes up 30% of QR code
+                        hideBackgroundDots: true
+                    };
+                }
+
+                const newQrcodeStylingInstance = new QRCodeStyling(qrConfig);
 
                 try {
                     newQrcodeStylingInstance.append(qrCodeContainer); // Append the QR code to the container
@@ -480,13 +540,14 @@
             }
 
             // Event listener for Static vCard QR Code generation
-            generateVcardBtn.addEventListener('click', () => {
+            generateVcardBtn.addEventListener('click', async () => {
                 hideMessage(vcardMessageBox);
                 const vCardData = generateVCardString();
                 const qrSize = vcardQrCodeSizeInput.value;
                 if (vCardData) {
+                    const logoData = await getLogoData(vcardLogoUrlInput, vcardLogoFileInput);
                     vcardDataCache = { data: vCardData, size: qrSize }; // Store data and size in cache
-                    vcardQrcodeStylingInstance = generateAndDisplayQrCode(vCardData, vcardQrCodeContainer, downloadVcardBtn, vcardMessageBox, qrSize);
+                    vcardQrcodeStylingInstance = generateAndDisplayQrCode(vCardData, vcardQrCodeContainer, downloadVcardBtn, vcardMessageBox, qrSize, logoData);
                 } else {
                     vcardDataCache = { data: null, size: qrSize }; // Clear data, keep size
                     const defaultPlaceholderSize = qrSize; // Use user's input size for placeholder
@@ -496,7 +557,7 @@
             });
 
             // Event listener for Dynamic Link QR Code generation
-            generateDynamicBtn.addEventListener('click', () => {
+            generateDynamicBtn.addEventListener('click', async () => {
                 hideMessage(dynamicMessageBox);
                 const urlData = dynamicQrUrlInput.value.trim();
                 const qrSize = dynamicQrCodeSizeInput.value;
@@ -506,8 +567,9 @@
                     return;
                 }
 
+                const logoData = await getLogoData(dynamicLogoUrlInput, dynamicLogoFileInput);
                 dynamicDataCache = { data: urlData, size: qrSize }; // Store data and size in cache
-                dynamicQrcodeStylingInstance = generateAndDisplayQrCode(urlData, dynamicQrCodeContainer, downloadDynamicBtn, dynamicMessageBox, qrSize);
+                dynamicQrcodeStylingInstance = generateAndDisplayQrCode(urlData, dynamicQrCodeContainer, downloadDynamicBtn, dynamicMessageBox, qrSize, logoData);
             });
 
             // Tab switching logic
