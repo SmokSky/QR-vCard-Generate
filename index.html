@@ -650,6 +650,105 @@
           return [text];
         }
 
+        async function renderCanvasWithSubtitle(
+          qrConfig,
+          subtitle,
+          data,
+          transparentBackground = false
+        ) {
+          const qrSize = qrConfig.width;
+          const newQrcodeStylingInstance = new QRCodeStyling(qrConfig);
+
+          const finalCanvas = document.createElement("canvas");
+          const ctx = finalCanvas.getContext("2d");
+
+          // Scale drawing parameters based on a base size for consistency
+          const baseSize = 200; // Reference size
+          const scale = qrSize / baseSize;
+
+          const topPadding = 25 * scale;
+          const lineHeight = 18 * scale;
+          const smallFontSize = 8 * scale;
+          const regularFontSize = 16 * scale;
+
+          // 1. Prepare lines and fonts by wrapping text
+          const initialSubtitleLines = subtitle ? subtitle.split("\n") : [];
+          const allDrawingLines = [];
+          const isUrlLastLine =
+            initialSubtitleLines.length > 0 &&
+            data.startsWith("http") &&
+            initialSubtitleLines[initialSubtitleLines.length - 1] === data;
+
+          initialSubtitleLines.forEach((line, index) => {
+            const isUrl =
+              isUrlLastLine && index === initialSubtitleLines.length - 1;
+            const font = isUrl
+              ? `${smallFontSize}px Arial`
+              : `${regularFontSize}px Arial`;
+            ctx.font = font;
+            const maxWidth = qrSize - 10 * scale; // padding
+
+            const wrappedLines = wrapText(ctx, line, maxWidth);
+
+            wrappedLines.forEach((wrappedLine) => {
+              allDrawingLines.push({ text: wrappedLine, font: font });
+            });
+          });
+
+          // 2. Calculate canvas height based on wrapped lines
+          const subtitleAreaHeight =
+            allDrawingLines.length > 0
+              ? topPadding + allDrawingLines.length * lineHeight
+              : 0;
+
+          // 3. Size the canvas
+          finalCanvas.width = qrSize;
+          finalCanvas.height = qrSize + subtitleAreaHeight;
+
+          // 4. Draw background only if not transparent
+          if (!transparentBackground) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+          }
+
+          // 5. Draw QR code
+          const blob = await newQrcodeStylingInstance.getRawData("png");
+          if (!blob) {
+            throw new Error("Could not get raw data from QR code");
+          }
+
+          const qrCodeImage = await new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(blob);
+            img.onload = () => {
+              URL.revokeObjectURL(url);
+              resolve(img);
+            };
+            img.onerror = (err) => {
+              URL.revokeObjectURL(url);
+              reject(err);
+            };
+            img.src = url;
+          });
+
+          ctx.drawImage(qrCodeImage, 0, 0, qrSize, qrSize);
+
+          // 6. Draw text
+          if (allDrawingLines.length > 0) {
+            ctx.fillStyle = "#000000";
+            ctx.textAlign = "center";
+            let currentY = qrSize + topPadding;
+
+            allDrawingLines.forEach((lineInfo) => {
+              ctx.font = lineInfo.font;
+              ctx.fillText(lineInfo.text, qrSize / 2, currentY);
+              currentY += lineHeight;
+            });
+          }
+
+          return finalCanvas;
+        }
+
         // Hàm tạo chuỗi vCard
         function generateVCardString() {
           const firstName = firstNameInput.value.trim();
@@ -774,8 +873,7 @@
                 color: "#6b2b06",
               },
               backgroundOptions: {
-                round: 0,
-                color: "#ffffff",
+                color: "transparent",
               },
               cornersSquareOptions: {
                 type: "extra-rounded",
@@ -828,91 +926,41 @@
           const newQrcodeStylingInstance = new QRCodeStyling(qrConfig);
 
           try {
-            // --- New Canvas Logic for Subtitle ---
-            const finalCanvas = document.createElement("canvas");
-            const ctx = finalCanvas.getContext("2d");
-            const topPadding = 25;
-            const lineHeight = 18; // Fixed line height for drawing
+            // --- New Canvas Logic ---
+            const finalCanvas = await renderCanvasWithSubtitle(
+              qrConfig,
+              subtitle,
+              data,
+              false // White background for display
+            );
+            qrCodeContainer.appendChild(finalCanvas); // Append the final canvas for display
 
-            // 1. Prepare lines and fonts by wrapping text
-            const initialSubtitleLines = subtitle ? subtitle.split("\n") : [];
-            const allDrawingLines = [];
-            const isUrlLastLine =
-              initialSubtitleLines.length > 0 &&
-              data.startsWith("http") &&
-              initialSubtitleLines[initialSubtitleLines.length - 1] === data;
-
-            initialSubtitleLines.forEach((line, index) => {
-              const isUrl =
-                isUrlLastLine && index === initialSubtitleLines.length - 1;
-              const font = isUrl ? "8px Arial" : "16px Arial";
-              ctx.font = font; // Set font on the context for measurement
-              const maxWidth = qrSize - 10; // 5px padding on each side
-
-              const wrappedLines = wrapText(ctx, line, maxWidth);
-
-              wrappedLines.forEach((wrappedLine) => {
-                allDrawingLines.push({ text: wrappedLine, font: font });
-              });
-            });
-
-            // 2. Calculate canvas height based on wrapped lines
-            const subtitleAreaHeight =
-              allDrawingLines.length > 0
-                ? topPadding + allDrawingLines.length * lineHeight
-                : 0;
-
-            // 3. Size the canvas
-            finalCanvas.width = qrSize;
-            finalCanvas.height = qrSize + subtitleAreaHeight;
-
-            // Draw a white background for the entire canvas
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-
-            // Get the QR code as a blob
-            const blob = await newQrcodeStylingInstance.getRawData("png");
-            if (!blob) {
-              throw new Error("Could not get raw data from QR code");
-            }
-
-            // Create an image from the blob and draw it to the canvas
-            const qrCodeImage = await new Promise((resolve, reject) => {
-              const img = new Image();
-              const url = URL.createObjectURL(blob);
-              img.onload = () => {
-                URL.revokeObjectURL(url);
-                resolve(img);
-              };
-              img.onerror = (err) => {
-                URL.revokeObjectURL(url);
-                reject(err);
-              };
-              img.src = url;
-            });
-
-            // Draw the QR code onto the final canvas
-            ctx.drawImage(qrCodeImage, 0, 0, qrSize, qrSize);
-
-            // Draw the subtitle text, now potentially multi-line
-            if (allDrawingLines.length > 0) {
-              ctx.fillStyle = "#000000"; // Black text color
-              ctx.textAlign = "center";
-              let currentY = qrSize + topPadding;
-
-              allDrawingLines.forEach((lineInfo) => {
-                ctx.font = lineInfo.font;
-                ctx.fillText(lineInfo.text, qrSize / 2, currentY);
-                currentY += lineHeight;
-              });
-            }
-            // --- End New Canvas Logic ---
-
-            qrCodeContainer.appendChild(finalCanvas); // Append the final canvas
-
-            // Update the download button's click handler
-            downloadBtn.onclick = function (event) {
+            // Update the download button's click handler for high-resolution export
+            downloadBtn.onclick = async function (event) {
               event.preventDefault(); // Prevent default anchor behavior
+
+              // High-resolution config
+              const exportScale = 1;
+              const highResQrConfig = {
+                ...qrConfig,
+                width: qrSize * exportScale,
+                height: qrSize * exportScale,
+              };
+
+              // Add logo to high-res config if it exists
+              if (logoData) {
+                highResQrConfig.image = logoData;
+                highResQrConfig.imageOptions = {
+                  ...qrConfig.imageOptions,
+                };
+              }
+
+              const highResCanvas = await renderCanvasWithSubtitle(
+                highResQrConfig,
+                subtitle,
+                data,
+                true // Transparent background for export
+              );
 
               // Create a filename from the subtitle, or use a default.
               // Replace whitespace with underscores and remove invalid characters.
@@ -922,7 +970,7 @@
 
               const link = document.createElement("a");
               link.download = fileName;
-              link.href = finalCanvas.toDataURL("image/png");
+              link.href = highResCanvas.toDataURL("image/png");
               link.click();
             };
             downloadBtn.classList.remove("hidden");
