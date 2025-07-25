@@ -45,21 +45,34 @@
       input[type="url"],
       input[type="tel"],
       input[type="number"],
+      select,
       textarea {
         width: 100%;
-        padding: 12px;
-        margin-bottom: 15px;
+        padding: 12px !important;
+        margin-bottom: 15px !important;
         border: 1px solid #d1d5db; /* Light gray border */
         border-radius: 8px;
         box-sizing: border-box;
-        font-size: 1rem;
+        font-size: 1rem !important;
         transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+      }
+      select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-color: #fff;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
       }
       input[type="text"]:focus,
       input[type="email"]:focus,
       input[type="url"]:focus,
       input[type="tel"]:focus,
       input[type="number"]:focus,
+      select:focus,
       textarea:focus {
         outline: none;
         border-color: #6366f1; /* Indigo 500 */
@@ -267,6 +280,19 @@
           />
           <!-- Default size set to 200 -->
 
+          <label for="vcardQrStyle">Kiểu mã QR:</label>
+          <select id="vcardQrStyle">
+            <option value="default" selected>Kiểu mặc định</option>
+            <option value="zalo">Kiểu tùy chỉnh (Giống Zalo)</option>
+          </select>
+
+          <label for="vcardSubtitle">Phụ đề (Tùy chọn):</label>
+          <input
+            type="text"
+            id="vcardSubtitle"
+            placeholder="VD: Quét để lưu danh bạ"
+          />
+
           <!-- Logo section for vCard -->
           <label for="vcardLogoUrl">Logo (URL):</label>
           <input
@@ -388,6 +414,11 @@
             placeholder="VD: https://tinnongtntech.com/your-info"
           />
 
+          <div class="flex items-center mb-4">
+            <input id="showUrlAsSubtitle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+            <label for="showUrlAsSubtitle" class="ml-2" style="font-weight: normal; margin-bottom: 0;">Hiển thị URL dưới mã QR</label>
+          </div>
+
           <label for="dynamicQrCodeSize">Kích thước mã QR (px):</label>
           <input
             type="number"
@@ -397,6 +428,19 @@
             max="1000"
           />
           <!-- Default size set to 200 -->
+
+          <label for="dynamicQrStyle">Kiểu mã QR:</label>
+          <select id="dynamicQrStyle">
+            <option value="default" selected>Kiểu mặc định</option>
+            <option value="zalo">Kiểu tùy chỉnh (Giống Zalo)</option>
+          </select>
+
+          <label for="dynamicSubtitle">Phụ đề (Tùy chọn):</label>
+          <input
+            type="text"
+            id="dynamicSubtitle"
+            placeholder="VD: Quét để truy cập trang web"
+          />
 
           <!-- Logo section for dynamic QR -->
           <label for="dynamicLogoUrl">Logo (URL):</label>
@@ -496,6 +540,8 @@
         const phoneInput = document.getElementById("phone");
         const websiteInput = document.getElementById("website");
         const vcardQrCodeSizeInput = document.getElementById("vcardQrCodeSize"); // New size input
+        const vcardQrStyleSelect = document.getElementById("vcardQrStyle"); // New style select
+        const vcardSubtitleInput = document.getElementById("vcardSubtitle"); // New subtitle input
         const vcardLogoUrlInput = document.getElementById("vcardLogoUrl");
         const vcardLogoFileInput = document.getElementById("vcardLogoFile");
         const generateVcardBtn = document.getElementById("generateVcardBtn");
@@ -507,8 +553,12 @@
 
         // Dynamic Link QR Code Elements
         const dynamicQrUrlInput = document.getElementById("dynamicQrUrl");
+        const showUrlAsSubtitleCheckbox =
+          document.getElementById("showUrlAsSubtitle");
         const dynamicQrCodeSizeInput =
           document.getElementById("dynamicQrCodeSize"); // New size input
+        const dynamicQrStyleSelect = document.getElementById("dynamicQrStyle"); // New style select
+        const dynamicSubtitleInput = document.getElementById("dynamicSubtitle"); // New subtitle input
         const dynamicLogoUrlInput = document.getElementById("dynamicLogoUrl");
         const dynamicLogoFileInput = document.getElementById("dynamicLogoFile");
         const generateDynamicBtn =
@@ -529,8 +579,8 @@
         let dynamicQrcodeStylingInstance = null;
 
         // Cache for storing the last generated data and size for each tab
-        let vcardDataCache = { data: null, size: 200 }; // Default size
-        let dynamicDataCache = { data: null, size: 200 }; // Default size
+        let vcardDataCache = { data: null, size: 200, style: "custom" }; // Default size and style
+        let dynamicDataCache = { data: null, size: 200, style: "custom" }; // Default size and style
 
         // Set default logo URL using current page URL
         const defaultLogoUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/TNTECH.png';
@@ -576,6 +626,28 @@
         function hideMessage(messageBox) {
           messageBox.classList.add("hidden");
           messageBox.textContent = "";
+        }
+
+        // Function to wrap text onto multiple lines
+        function wrapText(context, text, maxWidth) {
+          // For long strings without spaces (like URLs), wrap character by character
+          if (context.measureText(text).width > maxWidth) {
+            let lines = [];
+            let currentLine = "";
+            for (let i = 0; i < text.length; i++) {
+              let char = text[i];
+              let testLine = currentLine + char;
+              if (context.measureText(testLine).width > maxWidth && i > 0) {
+                lines.push(currentLine);
+                currentLine = char;
+              } else {
+                currentLine = testLine;
+              }
+            }
+            lines.push(currentLine);
+            return lines;
+          }
+          return [text];
         }
 
         // Hàm tạo chuỗi vCard
@@ -645,13 +717,15 @@
         }
 
         // Function to generate and display QR code using QRCodeStyling
-        function generateAndDisplayQrCode(
+        async function generateAndDisplayQrCode( // Make the function async
           data,
           qrCodeContainer,
           downloadBtn,
           messageBox,
           qrSize,
-          logoData = null
+          logoData = null,
+          qrStyle = "default",
+          subtitle = "" // New parameter for subtitle
         ) {
           // Validate qrSize
           qrSize = parseInt(qrSize);
@@ -682,32 +756,62 @@
             return null; // Return null as instance could not be created
           }
 
-          // Create QR code configuration
-          const qrConfig = {
-            width: qrSize,
-            height: qrSize,
-            type: "canvas",
-            data: data,
-            margin: 0,
-            dotsOptions: {
-              type: "dots",
-              color: "#000000",
-              roundSize: true,
-              gradient: null,
+          // Define QR code configurations for different styles
+          const qrConfigs = {
+            default: {
+              width: qrSize,
+              height: qrSize,
+              type: "canvas",
+              data: data,
+              margin: 0,
+              qrOptions: {
+                typeNumber: 0,
+                mode: "Byte",
+                errorCorrectionLevel: "Q",
+              },
+              dotsOptions: {
+                type: "extra-rounded",
+                color: "#6b2b06",
+              },
+              backgroundOptions: {
+                round: 0,
+                color: "#ffffff",
+              },
+              cornersSquareOptions: {
+                type: "extra-rounded",
+                color: "#6b2b06",
+              },
+              cornersDotOptions: {
+                type: "",
+                color: "#6b2b06",
+              },
             },
-            backgroundOptions: {
-              color: "transparent", // Set background to transparent
-            },
-            cornersSquareOptions: {
-              type: "extra-rounded",
-              color: "#000000",
-              gradient: null,
-            },
-            cornersDotOptions: {
-              type: "square",
-              color: "#000000",
+            zalo: {
+              width: qrSize,
+              height: qrSize,
+              type: "canvas",
+              data: data,
+              margin: 0,
+              dotsOptions: {
+                type: "dots",
+                color: "#000000",
+              },
+              backgroundOptions: {
+                color: "transparent",
+              },
+              cornersSquareOptions: {
+                type: "extra-rounded",
+                color: "#000000",
+              },
+              cornersDotOptions: {
+                type: "square",
+                color: "#000000",
+              },
             },
           };
+
+          // Select the configuration based on the chosen style
+          const qrConfig = qrConfigs[qrStyle] || qrConfigs.default;
 
           // Add logo if provided
           if (logoData) {
@@ -724,16 +828,102 @@
           const newQrcodeStylingInstance = new QRCodeStyling(qrConfig);
 
           try {
-            newQrcodeStylingInstance.append(qrCodeContainer); // Append the QR code to the container
+            // --- New Canvas Logic for Subtitle ---
+            const finalCanvas = document.createElement("canvas");
+            const ctx = finalCanvas.getContext("2d");
+            const topPadding = 25;
+            const lineHeight = 18; // Fixed line height for drawing
+
+            // 1. Prepare lines and fonts by wrapping text
+            const initialSubtitleLines = subtitle ? subtitle.split("\n") : [];
+            const allDrawingLines = [];
+            const isUrlLastLine =
+              initialSubtitleLines.length > 0 &&
+              data.startsWith("http") &&
+              initialSubtitleLines[initialSubtitleLines.length - 1] === data;
+
+            initialSubtitleLines.forEach((line, index) => {
+              const isUrl =
+                isUrlLastLine && index === initialSubtitleLines.length - 1;
+              const font = isUrl ? "8px Arial" : "16px Arial";
+              ctx.font = font; // Set font on the context for measurement
+              const maxWidth = qrSize - 10; // 5px padding on each side
+
+              const wrappedLines = wrapText(ctx, line, maxWidth);
+
+              wrappedLines.forEach((wrappedLine) => {
+                allDrawingLines.push({ text: wrappedLine, font: font });
+              });
+            });
+
+            // 2. Calculate canvas height based on wrapped lines
+            const subtitleAreaHeight =
+              allDrawingLines.length > 0
+                ? topPadding + allDrawingLines.length * lineHeight
+                : 0;
+
+            // 3. Size the canvas
+            finalCanvas.width = qrSize;
+            finalCanvas.height = qrSize + subtitleAreaHeight;
+
+            // Draw a white background for the entire canvas
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+            // Get the QR code as a blob
+            const blob = await newQrcodeStylingInstance.getRawData("png");
+            if (!blob) {
+              throw new Error("Could not get raw data from QR code");
+            }
+
+            // Create an image from the blob and draw it to the canvas
+            const qrCodeImage = await new Promise((resolve, reject) => {
+              const img = new Image();
+              const url = URL.createObjectURL(blob);
+              img.onload = () => {
+                URL.revokeObjectURL(url);
+                resolve(img);
+              };
+              img.onerror = (err) => {
+                URL.revokeObjectURL(url);
+                reject(err);
+              };
+              img.src = url;
+            });
+
+            // Draw the QR code onto the final canvas
+            ctx.drawImage(qrCodeImage, 0, 0, qrSize, qrSize);
+
+            // Draw the subtitle text, now potentially multi-line
+            if (allDrawingLines.length > 0) {
+              ctx.fillStyle = "#000000"; // Black text color
+              ctx.textAlign = "center";
+              let currentY = qrSize + topPadding;
+
+              allDrawingLines.forEach((lineInfo) => {
+                ctx.font = lineInfo.font;
+                ctx.fillText(lineInfo.text, qrSize / 2, currentY);
+                currentY += lineHeight;
+              });
+            }
+            // --- End New Canvas Logic ---
+
+            qrCodeContainer.appendChild(finalCanvas); // Append the final canvas
 
             // Update the download button's click handler
-            // Ensure the download button is an anchor tag with href="#"
             downloadBtn.onclick = function (event) {
               event.preventDefault(); // Prevent default anchor behavior
-              newQrcodeStylingInstance.download({
-                name: "qr_code",
-                extension: "png",
-              });
+
+              // Create a filename from the subtitle, or use a default.
+              // Replace whitespace with underscores and remove invalid characters.
+              const fileName = subtitle
+                ? `qr_code_${subtitle.replace(/\s+/g, "_").replace(/[/\\?%*:|"<>]/g, "")}.png`
+                : "qr_code.png";
+
+              const link = document.createElement("a");
+              link.download = fileName;
+              link.href = finalCanvas.toDataURL("image/png");
+              link.click();
             };
             downloadBtn.classList.remove("hidden");
             showMessage(
@@ -750,7 +940,7 @@
             qrCodeContainer.innerHTML = `<img src="https://placehold.co/${qrSize}x${qrSize}/E0E7FF/6366F1?text=QR+Code" alt="QR Code Placeholder"><p class="text-gray-500 text-sm mt-4">Mã QR của bạn sẽ xuất hiện ở đây.</p>`;
             downloadBtn.classList.add("hidden");
           }
-          return newQrcodeStylingInstance; // Return the newly created instance
+          return newQrcodeStylingInstance; // Return the original instance
         }
 
         // Event listener for Static vCard QR Code generation
@@ -758,22 +948,26 @@
           hideMessage(vcardMessageBox);
           const vCardData = generateVCardString();
           const qrSize = vcardQrCodeSizeInput.value;
+          const qrStyle = document.getElementById("vcardQrStyle").value; // Get selected style
+          const subtitle = vcardSubtitleInput.value.trim(); // Get subtitle
           if (vCardData) {
             const logoData = await getLogoData(
               vcardLogoUrlInput,
               vcardLogoFileInput
             );
-            vcardDataCache = { data: vCardData, size: qrSize }; // Store data and size in cache
+            vcardDataCache = { data: vCardData, size: qrSize, style: qrStyle, subtitle: subtitle }; // Store data, size, style, and subtitle
             vcardQrcodeStylingInstance = generateAndDisplayQrCode(
               vCardData,
               vcardQrCodeContainer,
               downloadVcardBtn,
               vcardMessageBox,
               qrSize,
-              logoData
+              logoData,
+              qrStyle, // Pass selected style
+              subtitle // Pass subtitle
             );
           } else {
-            vcardDataCache = { data: null, size: qrSize }; // Clear data, keep size
+            vcardDataCache = { data: null, size: qrSize, style: qrStyle, subtitle: subtitle }; // Clear data, keep size and style
             const defaultPlaceholderSize = qrSize; // Use user's input size for placeholder
             vcardQrCodeContainer.innerHTML = `<img src="https://placehold.co/${defaultPlaceholderSize}x${defaultPlaceholderSize}/E0E7FF/6366F1?text=QR+Code" alt="QR Code Placeholder"><p class="text-gray-500 text-sm mt-4">Mã QR vCard của bạn sẽ xuất hiện ở đây.</p>`;
             downloadVcardBtn.classList.add("hidden");
@@ -785,6 +979,13 @@
           hideMessage(dynamicMessageBox);
           const urlData = dynamicQrUrlInput.value.trim();
           const qrSize = dynamicQrCodeSizeInput.value;
+          const qrStyle = document.getElementById("dynamicQrStyle").value; // Get selected style
+          let subtitle = dynamicSubtitleInput.value.trim(); // Get subtitle
+
+          // If checkbox is checked, append the URL to the subtitle
+          if (showUrlAsSubtitleCheckbox.checked && urlData) {
+            subtitle = subtitle ? `${subtitle}\n${urlData}` : urlData;
+          }
 
           if (!urlData) {
             showMessage(
@@ -799,20 +1000,22 @@
             dynamicLogoUrlInput,
             dynamicLogoFileInput
           );
-          dynamicDataCache = { data: urlData, size: qrSize }; // Store data and size in cache
+          dynamicDataCache = { data: urlData, size: qrSize, style: qrStyle, subtitle: subtitle }; // Store data, size, style, and subtitle
           dynamicQrcodeStylingInstance = generateAndDisplayQrCode(
             urlData,
             dynamicQrCodeContainer,
             downloadDynamicBtn,
             dynamicMessageBox,
             qrSize,
-            logoData
+            logoData,
+            qrStyle, // Pass selected style
+            subtitle // Pass subtitle
           );
         });
 
         // Tab switching logic
         tabButtons.forEach((button) => {
-          button.addEventListener("click", () => {
+          button.addEventListener("click", async () => { // Make async to handle logo fetching
             const targetTab = button.dataset.tab;
 
             tabButtons.forEach((btn) => btn.classList.remove("active"));
@@ -831,20 +1034,28 @@
 
             // If switching to a tab that has cached data, re-generate it
             if (targetTab === "staticVcard" && vcardDataCache.data) {
+              const logoData = await getLogoData(vcardLogoUrlInput, vcardLogoFileInput);
               vcardQrcodeStylingInstance = generateAndDisplayQrCode(
                 vcardDataCache.data,
                 vcardQrCodeContainer,
                 downloadVcardBtn,
                 vcardMessageBox,
-                vcardDataCache.size
+                vcardDataCache.size,
+                logoData,
+                vcardDataCache.style,
+                vcardDataCache.subtitle
               );
             } else if (targetTab === "dynamicLink" && dynamicDataCache.data) {
+              const logoData = await getLogoData(dynamicLogoUrlInput, dynamicLogoFileInput);
               dynamicQrcodeStylingInstance = generateAndDisplayQrCode(
                 dynamicDataCache.data,
                 dynamicQrCodeContainer,
                 downloadDynamicBtn,
                 dynamicMessageBox,
-                dynamicDataCache.size
+                dynamicDataCache.size,
+                logoData,
+                dynamicDataCache.style,
+                dynamicDataCache.subtitle
               );
             } else {
               // If no QR code generated for the tab yet, display placeholder
